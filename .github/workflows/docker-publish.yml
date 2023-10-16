@@ -1,12 +1,32 @@
 name: Publish Docker image
 
 on:
-  push:
-    branches:
-      - main
+  - pull_request
 
 jobs:
+  generate-version:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    outputs:
+      new_tag: ${{ steps.bump-version.outputs.new_tag }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: '0'
+      - name: Bump version and push tag
+        id: bump-version
+        uses: anothrNick/github-tag-action@1.64.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WITH_V: false
+          MAJOR_STRING_TOKEN: "release("
+          MINOR_STRING_TOKEN: "feat("
+          PATCH_STRING_TOKEN: "fix("
+          DEFAULT_BUMP: minor
+          
   build-and-publish:
+    needs: generate-version
     runs-on: ubuntu-latest
     steps:
       - name: Code checkout
@@ -21,4 +41,4 @@ jobs:
         with:
           context: .
           push: true
-          tags: vasitos/arequipetapi:latest, vasitos/arequipetapi:${{ github.run_number }}
+          tags: vasitos/arequipetapi:latest, vasitos/arequipetapi:${{ needs.generate-version.outputs.new_tag }}

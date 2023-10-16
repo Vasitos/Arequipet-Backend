@@ -43,6 +43,13 @@ var corsOptions = {
     optionsSuccessStatus: 200
 };
 
+var RateLimit = require('express-rate-limit');
+var limiter = RateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+});
+
+app.use(limiter);
 app.use(cors(corsOptions));
 app.use(bodyParser.json());
 
