@@ -1,0 +1,58 @@
+name: Inspect pull request
+on:
+  - pull_request
+
+jobs:
+    analyze:
+        name: Analyze
+        runs-on: ubuntu-latest
+
+        strategy:
+            fail-fast: false
+            matrix:
+                language: [ 'javascript' ]
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v3
+            
+            - name: Initialize CodeQL
+              uses: github/codeql-action/init@v2
+              with:
+                languages: ${{ matrix.language }}
+            
+            - name: Autobuild
+              uses: github/codeql-action/autobuild@v2
+            
+            - name: Perform CodeQL Analysis
+              uses: github/codeql-action/analyze@v2
+              with:
+                upload: False
+                output: sarif-results
+            
+            - name: Remap SARIF
+              uses: advanced-security/remap-sarif@main
+              with:
+                sourceroot: src   # optional
+                input: sarif-results/${{ matrix.language }}.sarif
+                output: sarif-results/${{ matrix.language }}.sarif
+            
+            - name: Upload SARIF
+              uses: github/codeql-action/upload-sarif@v2
+              with:
+                sarif_file: sarif-results/${{ matrix.language }}.sarif
+            
+            - name: Upload SARIF results as a Build Artifact
+              uses: actions/upload-artifact@v3
+              with:
+                name: sarif-results
+                path: sarif-results
+                retention-days: 1
+    oneCommit:
+        runs-on: ubuntu-latest
+        name: restrict commit messages
+        steps:
+            - uses: actions/checkout@v1
+            - uses: Gaurang033/OneCommit@v1
+              with:
+                max_commits: 1

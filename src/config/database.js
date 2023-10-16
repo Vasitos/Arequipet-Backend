@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const seedDefaultCategory = require('./seedCategory');
 
 var uri = process.env.MONGOURL;
 
@@ -9,6 +10,7 @@ const connection = mongoose.connection;
 
 connection.once("open", function() {
   console.log("MongoDB database connection established successfully");
+  seedDefaultCategory();
 });
 
 module.exports = connection;
