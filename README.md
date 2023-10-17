@@ -1,6 +1,6 @@
 # Backend
 
-The backend application is designed to manage minecraft mods and send to python app the commands to run the application, stop or get the current process.
+The backend application is designed to manage minecraft server, resources and other things
 
 ## Install 
 
