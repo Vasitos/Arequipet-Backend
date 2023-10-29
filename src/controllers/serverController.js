@@ -2,6 +2,7 @@ const Gamedig = require('gamedig');
 const ServerProperties = require('../database/schemas/serverProperties');
 const fs = require('fs');
 const databaseOperations = require('../database/repositories/serverProperties/index');
+const updateConfigUseCase = require('../application/serverProperties/updateServerPropertiesUseCase');
 
 async function mapConfiguration(req, res) {
     const filePath = process.env.SERVERPROPERTIES;
@@ -193,95 +194,11 @@ async function getServerPropertiesByCategory(req, res) {
 
 async function updateProperties(req, res) {
     const data = req.body;
-    const filePath = process.env.SERVERPROPERTIES;
-
     try {
-        const updatedKeys = [];
-        const skippedKeys = [];
-        const unchangedKeys = [];
-        let transactionSuccessful = true;
-
-        const currentConfig = await fs.promises.readFile(filePath, 'utf8');
-        let updatedConfig = currentConfig;
-        const originalProperties = {};
-
-        for (const key in data) {
-            const value = data[key];
-
-            if (key && value !== undefined && value !== null) {
-                const cleanedKey = key;
-                const cleanedValue = value;
-                const existingProperty = await databaseOperations.findPropertyByKey(cleanedKey);
-
-                if (existingProperty) {
-                    if (existingProperty.value === cleanedValue) {
-                        unchangedKeys.push(cleanedKey);
-                        continue;
-                    }
-
-                    updatedConfig = updateConfigValue(updatedConfig, cleanedKey, cleanedValue);
-                    originalProperties[cleanedKey] = existingProperty.value;
-
-                    if (existingProperty.type === 'string') {
-                        existingProperty.value = cleanedValue.toString();
-                    } else if (existingProperty.type === 'bool') {
-                        if (typeof cleanedValue === 'boolean') {
-                            existingProperty.value = cleanedValue;
-                        } else {
-                            skippedKeys.push(cleanedKey);
-                            transactionSuccessful = false;
-                            continue;
-                        }
-                    } else if (existingProperty.type === 'number') {
-                        if (!isNaN(cleanedValue)) {
-                            existingProperty.value = parseFloat(cleanedValue);
-                        } else {
-                            skippedKeys.push(cleanedKey);
-                            transactionSuccessful = false;
-                            continue;
-                        }
-                    }
-
-                    try {
-                        await existingProperty.save();
-                        updatedKeys.push(cleanedKey);
-                    } catch (dbUpdateError) {
-                        existingProperty.value = originalProperties[cleanedKey];
-                        skippedKeys.push(cleanedKey);
-                        transactionSuccessful = false;
-                    }
-                } else {
-                    skippedKeys.push(cleanedKey);
-                }
-            }
-        }
-
-        try {
-            await fs.promises.writeFile(filePath, updatedConfig, 'utf8');
-        } catch (fileUpdateError) {
-            console.error('Error updating the file:', fileUpdateError);
-            transactionSuccessful = false;
-            for (const key in originalProperties) {
-                const existingProperty = await ServerProperties.findOne({ key });
-                if (existingProperty) {
-                    existingProperty.value = originalProperties[key];
-                    await existingProperty.save();
-                }
-            }
-        }
-
+        const { updatedKeys, skippedKeys, unchangedKeys, transactionSuccessful } = 
+            await updateConfigUseCase.processConfigData(data);
         if (transactionSuccessful) {
-            let responseMessage = 'Properties updated successfully';
-            if (updatedKeys.length > 0) {
-                responseMessage += '. Updated keys: ' + updatedKeys.join(', ');
-            }
-            if (skippedKeys.length > 0) {
-                responseMessage += '. Skipped keys: ' + skippedKeys.join(', ');
-            }
-            if (unchangedKeys.length > 0) {
-                responseMessage += '. Unchanged keys: ' + unchangedKeys.join(', ');
-            }
-
+            const responseMessage = updateConfigUseCase.buildResponseMessage(updatedKeys, skippedKeys, unchangedKeys);
             return res.status(200).json({ error: false, message: responseMessage, updatedKeys, skippedKeys, unchangedKeys });
         } else {
             return res.status(500).json({ error: true, message: 'Transaction failed. Changes rolled back.' });
@@ -290,17 +207,6 @@ async function updateProperties(req, res) {
         console.error('Error updating properties:', err);
         return res.status(500).json({ error: true, message: 'Error updating properties' });
     }
-}
-
-function updateConfigValue(config, key, value) {
-    const lines = config.split('\n');
-    for (let i = 0; i < lines.length; i++) {
-        if (lines[i].trim().startsWith(`${key}=`)) {
-            lines[i] = `${key}=${value}`;
-            break;
-        }
-    }
-    return lines.join('\n');
 }
 
 module.exports = {
