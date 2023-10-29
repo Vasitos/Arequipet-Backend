@@ -54,6 +54,16 @@ async function getServerPropertyById(id) {
     }
 }
 
+async function getServerPropertyByKey(key) {
+    try {
+        const serverProperty = await ServerProperties.findOne({ key }).populate('category');
+        return serverProperty;
+    } catch (error) {
+        throw error;
+    }
+}
+
+
 async function createCategory(data) {
     try {
         const newCategory = await ServerPropertiesCategory.create(data);
@@ -109,7 +119,6 @@ async function getProperties() {
                             value: '$value',
                             default: '$default',
                             data: '$data',
-                            category: '$category._id',
                             isConfigured: '$isConfigured',
                             isArray: '$isArray'
                         }
@@ -121,6 +130,58 @@ async function getProperties() {
                     _id: 0,
                     category: '$_id',
                     default: 1
+                }
+            },
+            {
+                $sort: {
+                    category: 1
+                }
+            }
+        ];
+
+        const properties = await ServerProperties.aggregate(pipeline);
+        return properties;
+    } catch (error) {
+        throw error;
+    }
+}
+
+async function getPropertiesForSetup() {
+    try {
+        const pipeline = [
+            {
+                $lookup: {
+                    from: 'serverpropertiescategories',
+                    localField: 'category',
+                    foreignField: '_id',
+                    as: 'category'
+                }
+            },
+            {
+                $unwind: '$category'
+            },
+            {
+                $group: {
+                    _id: '$category.key',
+                    default: {
+                        $push: {
+                            _id: '$_id',
+                            key: '$key',
+                            isConfigured: '$isConfigured',
+                        }
+                    }
+                }
+            },
+            {
+                $project: {
+                    _id: 0,
+                    category: '$_id',
+                    default: 1
+                }
+            },
+            {
+                $sort: {
+                    category: 1
                 }
             }
         ];
@@ -149,6 +210,10 @@ async function getCategoryById(categoryId) {
     }
 }
 
+async function getCategoryByKey(key) {
+    return await ServerPropertiesCategory.findOne({ key: { $eq: key } });
+}
+
 module.exports = {
     createServerProperty,
     updateServerPropertyById,
@@ -162,5 +227,8 @@ module.exports = {
     findPropertyByKeyAndCategory,
     createProperty,
     getCategoryById,
-    findPropertyByKey
+    findPropertyByKey,
+    getServerPropertyByKey,
+    getPropertiesForSetup,
+    getCategoryByKey
 };
