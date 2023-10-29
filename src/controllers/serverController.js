@@ -88,12 +88,37 @@ async function getServerProperties(req, res) {
     }
 }
 
-async function getServerPropertyById(req, res) {
+async function getServerPropertiesForSetup(req, res) {
     try {
-        const serverProperty = await databaseOperations.getServerPropertyById(req.params.id);
+        const serverProperties = await databaseOperations.getPropertiesForSetup();
+        const result = {};
+        serverProperties.forEach((category) => {
+            result[category.category] = category.default;
+        });
+
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: 'Could not fetch server properties' });
+    }
+}
+
+async function getServerPropertyByKeyOrId(req, res) {
+    try {
+        const keyOrId = req.params.value;
+        let serverProperty;
+
+        if (keyOrId.match(/^[0-9a-fA-F]{24}$/)) {
+            serverProperty = await databaseOperations.getServerPropertyById(keyOrId);
+        }
+
+        if (!serverProperty) {
+            serverProperty = await databaseOperations.findPropertyByKey(keyOrId);
+        }
+
         if (!serverProperty) {
             return res.status(404).json({ error: 'Server property not found' });
         }
+
         res.json(serverProperty);
     } catch (error) {
         res.status(500).json({ error: 'Could not fetch server property' });
@@ -146,15 +171,21 @@ async function getServerCategories(req, res) {
 
 async function getServerPropertiesByCategory(req, res) {
     try {
-        const categoryId = req.params.categoryId;
-        const category = await databaseOperations.getCategoryById(categoryId);
+        const keyOrId = req.params.value;
+        let category;
+        if (keyOrId.match(/^[0-9a-fA-F]{24}$/)) {
+            category = await databaseOperations.getCategoryById(keyOrId);
+        }
+
+        if (!category) {
+            category = await databaseOperations.getCategoryByKey(keyOrId);
+        }
 
         if (!category) {
             return res.status(404).json({ error: 'Category not found' });
         }
 
-        const properties = await databaseOperations.getPropertiesByCategory(categoryId);
-        res.json(properties);
+        res.json(category);
     } catch (error) {
         res.status(500).json({ error: 'Could not fetch server properties' });
     }
@@ -174,11 +205,13 @@ async function updateProperties(req, res) {
         let updatedConfig = currentConfig;
         const originalProperties = {};
 
-        for (const item of data) {
-            if (item.key && item.value !== undefined && item.value !== null) {
-                const cleanedKey = item.key;
-                const cleanedValue = item.value;
-                const existingProperty = await databaseOperations.findPropertyByKey(cleanedKey)
+        for (const key in data) {
+            const value = data[key];
+
+            if (key && value !== undefined && value !== null) {
+                const cleanedKey = key;
+                const cleanedValue = value;
+                const existingProperty = await databaseOperations.findPropertyByKey(cleanedKey);
 
                 if (existingProperty) {
                     if (existingProperty.value === cleanedValue) {
@@ -188,6 +221,7 @@ async function updateProperties(req, res) {
 
                     updatedConfig = updateConfigValue(updatedConfig, cleanedKey, cleanedValue);
                     originalProperties[cleanedKey] = existingProperty.value;
+
                     if (existingProperty.type === 'string') {
                         existingProperty.value = cleanedValue.toString();
                     } else if (existingProperty.type === 'bool') {
@@ -207,6 +241,7 @@ async function updateProperties(req, res) {
                             continue;
                         }
                     }
+
                     try {
                         await existingProperty.save();
                         updatedKeys.push(cleanedKey);
@@ -270,7 +305,7 @@ function updateConfigValue(config, key, value) {
 
 module.exports = {
     getServerProperties,
-    getServerPropertyById,
+    getServerPropertyByKeyOrId,
     updateServerProperty,
     deleteServerProperty,
     createCategory,
@@ -278,5 +313,6 @@ module.exports = {
     mapConfiguration,
     getServerCategories,
     getServerPropertiesByCategory,
-    updateProperties
+    updateProperties,
+    getServerPropertiesForSetup
 };

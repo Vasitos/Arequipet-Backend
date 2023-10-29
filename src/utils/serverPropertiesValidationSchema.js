@@ -14,12 +14,11 @@ const serverPropertyValidation = (body) => {
 
 
 const serverPropertyKeyValueValidation = (body) => {
-    const schema = Joi.array().items(
-        Joi.object({
-            key: Joi.string().required(),
-            value: Joi.any().required(),
-        }).unknown(false).options({ abortEarly: false })
+    const schema = Joi.object().pattern(
+        Joi.string().required(),
+        Joi.any().required()
     );
+
     return schema.validate(body);
 };
 
