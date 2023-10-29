@@ -27,14 +27,14 @@ async function mapConfiguration(req, res) {
             const cleanedKey = key.trim();
             let cleanedValue = value.trim();
 
-            const existingProperty = await databaseOperations.findPropertyByKeyAndCategory(cleanedKey, category._id);
+            const existingProperty = await databaseOperations.findPropertyByKey(cleanedKey);
 
             if (existingProperty) {
-                existingProperty.value = cleanedValue.toString();
+                existingProperty.value = cleanedValue;
                 await existingProperty.save();
             } else {
                 const type = determinePropertyType(cleanedValue);
-                await databaseOperations.createProperty(cleanedKey, cleanedValue.toString(), category._id, type);
+                await databaseOperations.createProperty(cleanedKey, cleanedValue, category._id, type);
             }
         }
 
@@ -46,7 +46,10 @@ async function mapConfiguration(req, res) {
 }
 
 function determinePropertyType(value) {
-    if (value === 'true' || value === 'false') {
+    console.log(value)
+    if (value === '') {
+        return 'unknown';
+    } else if (value === 'true' || value === 'false') {
         return 'bool';
     } else if (!isNaN(value)) {
         return 'number';
