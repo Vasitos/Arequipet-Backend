@@ -175,6 +175,7 @@ async function getPropertiesForSetup() {
                             _id: '$_id',
                             key: '$key',
                             isConfigured: '$isConfigured',
+                            type: '$type'
                         }
                     }
                 }

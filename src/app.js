@@ -2,7 +2,10 @@ const cors = require('cors');
 const express = require('express');
 const bodyParser = require('body-parser');
 const fileUpload = require('express-fileupload');
-const pathCreate = require('./utils/folderCreator')
+const pathCreate = require('./utils/folderCreator');
+const compression = require('compression');
+
+const helmet = require('helmet');
 require('express-async-errors');
 require('dotenv').config();
 require('./config/database');
@@ -32,21 +35,28 @@ const serverRouter = require('./routes/serverRouter')
 
 const app = express();
 app.use(express.json({ limit: '1024mb' }))
-
+app.use(helmet());
+app.use(compression());
 app.use(fileUpload({
     createParentPath: true
 }));
 
-var corsOptions = {
-    origin: '*',
+const corsOptions = {
     methods: ['GET', 'POST', 'DELETE', 'UPDATE', 'PUT', 'PATCH'],
-    optionsSuccessStatus: 200
+    optionsSuccessStatus: 200,
 };
+
+if (process.env.NODE_ENV === 'development') {
+    corsOptions.origin = '*';
+} else {
+    corsOptions.origin = ['https://arequipet.vasitos.org'];
+}
+
 
 var RateLimit = require('express-rate-limit');
 var limiter = RateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 200,
+    windowMs: 15 * 60 * 1000,
+    max: 200,
 });
 
 app.use(limiter);
@@ -85,6 +95,14 @@ app.use((err, req, res, next) => {
     console.error(err.stack)
     res.status(500).send('Something broke!')
 })
+
+app.use((req, res, next) => {
+    if (req.headers['upgrade'] === 'websocket' && req.headers['sec-websocket-protocol'] === 'socket.io') {
+        next();
+    } else {
+        res.status(403).send('Forbidden: Only Socket.io WebSocket connections are allowed.');
+    }
+});
 
 // Handler for 404 resource not found
 app.use((req, res, next) => {
