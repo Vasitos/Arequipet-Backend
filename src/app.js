@@ -75,22 +75,6 @@ app.use('/api/v1/backups', backupRouter)
 
 app.use('/api/v1/server', serverRouter)
 
-app.get('/docker-ps', (req, res) => {
-    exec('docker logs my-nginx', (error, stdout, stderr) => {
-        if (error) {
-            console.error(`Error executing 'docker ps': ${error.message}`);
-            return res.status(500).send('Error running docker ps');
-        }
-
-        if (stderr) {
-            console.error(`stderr: ${stderr}`);
-            return res.status(500).send('Error running docker ps');
-        }
-
-        res.send(`<pre>${stdout}</pre>`);
-    });
-});
-
 app.use((err, req, res, next) => {
     console.error(err.stack)
     res.status(500).send('Something broke!')
